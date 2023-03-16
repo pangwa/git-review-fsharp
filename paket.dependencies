@@ -4,5 +4,5 @@ storage: none
 framework: net5.0, net7.0, netstandard2.0, netstandard2.1
 
 nuget Argu
-nuget Fli
 nuget Spectre.Console
+nuget MedallionShell
