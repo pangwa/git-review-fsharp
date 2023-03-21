@@ -11,13 +11,13 @@ type Colors =
     | Green
     | Blue
 
-let runGit args =
+let runCmdIO cmd args =
     let arg_str =
         args
         |> Seq.map (fun a -> $"\"{a}\"")
         |> String.concat " "
-    let full_cmd = "git " + arg_str
-    let cmd = Command.Run("git", args |> Seq.toArray)
+    let full_cmd = cmd  + arg_str
+    let cmd = Command.Run(cmd, args |> Seq.toArray)
     cmd.StandardInput.PipeFromAsync(Console.OpenStandardInput()) |> ignore
     cmd.StandardOutput.PipeToAsync(Console.OpenStandardOutput()) |> ignore
     cmd.StandardError.PipeToAsync(Console.OpenStandardError()) |> ignore
@@ -25,7 +25,18 @@ let runGit args =
     if r.Success = false then
         AnsiConsole.MarkupLine($"""[red]Command: {full_cmd} failed with code: {r.ExitCode}[/]""")
 
-    r
+let runCmdGetOutput cmd args =
+    let arg_str =
+        args
+        |> Seq.map (fun a -> $"\"{a}\"")
+        |> String.concat " "
+    let full_cmd = cmd  + arg_str
+    let cmd = Command.Run(cmd, args |> Seq.toArray)
+    let outputLines = new System.Collections.Generic.List<string>();
+    cmd.StandardOutput.PipeToAsync(outputLines) |> ignore
+    cmd.Task.Wait()
+    outputLines |> String.concat "\n"
+
 
 let parse_review_number (review: string) =
     let parts = review.Split(",")
@@ -36,7 +47,7 @@ let parse_review_number (review: string) =
 
 let gitCredentials url =
     AnsiConsole.MarkupLine($"fill credential for [underline blue]{url}[/]")
-    runGit [ "credential"; "fill" ]
+    runCmdIO "git" [ "credential"; "fill" ]
 
 let run_http<'a> url =
     let run_unsafe u =
@@ -46,6 +57,14 @@ let run_http<'a> url =
       } |> Request.send
         |> Response.deserializeJson<'a>
     Result.protect run_unsafe url
+
+let get_git_version () =
+  let output = runCmdGetOutput "git" ["version"]
+  printfn "output: %s" output
+  if output.Contains("git version") then
+      output.Split(" ")[2] |> Ok
+  else
+      Error("can't determine git version")
 
 FsHttp.GlobalConfig.Json.defaultJsonSerializerOptions <-
     let options = JsonSerializerOptions()
@@ -59,5 +78,7 @@ let main () =
     // gitCredentials "https://test.com" |> System.Console.WriteLine
     run_http<Post> "https://jsonplaceholder.typicode.com/posts/1"
     |> fun o -> printfn "obj %A" o
+    let ver = get_git_version () |> Result.get
+    printfn "git version: %s" ver
 
 main ()
