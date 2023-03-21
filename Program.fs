@@ -1,7 +1,10 @@
 open Spectre.Console
 open Medallion.Shell
 open System
+open FSharpPlus
 open FsHttp
+open System.Text.Json
+open System.Text.Json.Serialization
 
 type Colors =
     | Yellow
@@ -35,16 +38,26 @@ let gitCredentials url =
     AnsiConsole.MarkupLine($"fill credential for [underline blue]{url}[/]")
     runGit [ "credential"; "fill" ]
 
-let run_http url =
-    http {
+let run_http<'a> url =
+    let run_unsafe u =
+      http {
       config_ignoreCertIssues
-      GET url
-    } |> Request.send
-    |> Response.toFormattedText // TODO: use json?
+      GET u
+      } |> Request.send
+        |> Response.deserializeJson<'a>
+    Result.protect run_unsafe url
 
+FsHttp.GlobalConfig.Json.defaultJsonSerializerOptions <-
+    let options = JsonSerializerOptions()
+    options.Converters.Add(JsonFSharpConverter())
+    options
+
+type Post = { id: int }
 
 let main () =
     AnsiConsole.MarkupLine("[underline red]Hello[/] git-gerrit!")
-    gitCredentials "https://test.com" |> System.Console.WriteLine
+    // gitCredentials "https://test.com" |> System.Console.WriteLine
+    run_http<Post> "https://jsonplaceholder.typicode.com/posts/1"
+    |> fun o -> printfn "obj %A" o
 
 main ()
