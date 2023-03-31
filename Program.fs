@@ -13,6 +13,8 @@ type Colors =
 
 let MIN_GIT_VERSION = (2, 10, 0)
 
+let VERBOSE = false
+
 let runCmdIO cmd args =
     let arg_str =
         args
@@ -32,10 +34,12 @@ let runCmdGetOutput cmd args =
         args
         |> Seq.map (fun a -> $"\"{a}\"")
         |> String.concat " "
-    let full_cmd = cmd  + arg_str
+    let full_cmd = cmd + " " + arg_str
+    printfn "cmd: %s" full_cmd
     let cmd = Command.Run(cmd, args |> Seq.toArray)
     let outputLines = new System.Collections.Generic.List<string>();
     cmd.StandardOutput.PipeToAsync(outputLines) |> ignore
+    cmd.StandardError.PipeToAsync(outputLines) |> ignore
     cmd.Task.Wait()
     outputLines |> String.concat "\n"
 
@@ -79,15 +83,43 @@ FsHttp.GlobalConfig.Json.defaultJsonSerializerOptions <-
     options.Converters.Add(JsonFSharpConverter())
     options
 
-type Post = { id: int }
+let git_directories () =
+    // Determine (absolute git work directory path, .git subdirectory path).
+    let work_tree = runCmdGetOutput "git" [ "rev-parse"; "--show-toplevel"; "--git-dir";]
+    work_tree.Split("\n")
+
+let git_config_and_value section option defaultVal asBool =
+    let cmdPrefix = ["config"; "--get"; ]
+    let cmdPostfix = [section + "." + option]
+    let cmdPre = if asBool then cmdPrefix @ ["--bool"] else cmdPrefix
+    let cmd = cmdPre @ cmdPostfix
+
+    let output = (runCmdGetOutput "git" (cmd |> Seq.cast)).Trim()
+    if output = "" then
+        defaultVal
+    else
+        output
+
+let git_string_config section  option defaultVal =
+    git_config_and_value section option defaultVal false
+
+let git_boolean_config section option defaultVal =
+    let defaultStr = if defaultVal then "true" else "false"
+    git_config_and_value section option defaultStr true |> Boolean.Parse
+
+
+// type Post = { id: int }
 
 let main () =
     AnsiConsole.MarkupLine("[underline red]Hello[/] git-gerrit!")
     // gitCredentials "https://test.com" |> System.Console.WriteLine
-    run_http<Post> "https://jsonplaceholder.typicode.com/posts/1"
-    |> fun o -> printfn "obj %A" o
+    // run_http<Post> "https://jsonplaceholder.typicode.com/posts/1"
+    // |> fun o -> printfn "obj %A" o
     let ver = get_git_version () |> Result.get
     if ver < MIN_GIT_VERSION then
         failwith "local git version is too old"
+    let name = git_string_config "user" "name" "unknown"
+    let test = git_boolean_config "commit" "gpgsign2" false
+    printfn "name: %s, %b" name test
 
 main ()
