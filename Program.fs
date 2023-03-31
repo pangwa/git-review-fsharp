@@ -61,14 +61,18 @@ let run_http<'a> url =
     Result.protect run_unsafe url
 
 let get_git_version () =
-  let output = runCmdGetOutput "git" ["version"]
-  printfn "output: %s" output
-  if output.Contains("git version") then
-      let ver = output.Split(" ")[2]
-      let ver_array = ver.Split(".")[0..2] |> Array.map int |> (flip Array.append) [|0; 0; 0;|]
-      Ok((ver_array[0], ver_array[1], ver_array[2]))
-  else
-      Error("can't determine git version")
+    let output = runCmdGetOutput "git" [ "version" ]
+    printfn "output: %s" output
+
+    if output.Contains("git version") then
+        let ver = output.Split(" ")[2]
+
+        let ver_array =
+            ver.Split(".")[0..2] |> Array.map int |> (flip Array.append) [| 0; 0; 0 |]
+
+        Ok((ver_array[0], ver_array[1], ver_array[2]))
+    else
+        Error("can't determine git version")
 
 FsHttp.GlobalConfig.Json.defaultJsonSerializerOptions <-
     let options = JsonSerializerOptions()
