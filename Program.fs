@@ -11,6 +11,8 @@ type Colors =
     | Green
     | Blue
 
+let MIN_GIT_VERSION = (2, 10, 0)
+
 let runCmdIO cmd args =
     let arg_str =
         args
@@ -62,7 +64,9 @@ let get_git_version () =
   let output = runCmdGetOutput "git" ["version"]
   printfn "output: %s" output
   if output.Contains("git version") then
-      output.Split(" ")[2] |> Ok
+      let ver = output.Split(" ")[2]
+      let ver_array = ver.Split(".")[0..2] |> Array.map int |> (flip Array.append) [|0; 0; 0;|]
+      Ok((ver_array[0], ver_array[1], ver_array[2]))
   else
       Error("can't determine git version")
 
@@ -79,6 +83,7 @@ let main () =
     run_http<Post> "https://jsonplaceholder.typicode.com/posts/1"
     |> fun o -> printfn "obj %A" o
     let ver = get_git_version () |> Result.get
-    printfn "git version: %s" ver
+    if ver < MIN_GIT_VERSION then
+        failwith "local git version is too old"
 
 main ()
