@@ -5,6 +5,7 @@ open FSharpPlus
 open FsHttp
 open System.Text.Json
 open System.Text.Json.Serialization
+open System.IO
 
 type Colors =
     | Yellow
@@ -108,6 +109,16 @@ let git_boolean_config section option defaultVal =
     git_config_and_value section option defaultStr true |> Boolean.Parse
 
 
+let git_get_hooks_path top_dir git_dir =
+    let hooks_path = git_string_config "core" "hooksPath" ""
+    if hooks_path = "" then
+        Path.Combine(git_dir, "hooks")
+    else
+        if Path.IsPathRooted(hooks_path) then
+            hooks_path
+        else
+            Path.Combine(top_dir, hooks_path)
+
 // type Post = { id: int }
 
 let main () =
@@ -118,8 +129,5 @@ let main () =
     let ver = get_git_version () |> Result.get
     if ver < MIN_GIT_VERSION then
         failwith "local git version is too old"
-    let name = git_string_config "user" "name" "unknown"
-    let test = git_boolean_config "commit" "gpgsign2" false
-    printfn "name: %s, %b" name test
 
 main ()
